@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json.schemastore.org/launchsettings.json",
+  "iisSettings": {
+    "windowsAuthentication": false,
+    "anonymousAuthentication": true,
+    "iisExpress": {
+      "applicationUrl": "http://localhost:3910",
+      "sslPort": 44351
+    }
+  },
+  "profiles": {
+    "IIS Express": {
+      "commandName": "IISExpress",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    "chatbot_backend": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "launchUrl": "/api/v1",
+      "applicationUrl": "http://localhost:5001",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "DATABASE_URL": "postgres://wfzikjzsdzkeob:ae880b97e825f9a535bfa7e9d46287b853ab5126b5f09fea5e78bb147002e259@ec2-34-246-141-162.eu-west-1.compute.amazonaws.com:5432/dbld9dpsmup4uq"
+      }
+    }
+  }
+}

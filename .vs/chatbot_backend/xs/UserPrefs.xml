@@ -1,0 +1,44 @@
+﻿<Properties StartupConfiguration="{95076628-83C1-4ABC-8D19-6331FC4CA60D}|Default">
+  <MonoDevelop.Ide.Workbench ActiveDocument="chatbot_backend/Controllers/Views/course.cs">
+    <Files>
+      <File FileName="chatbot_backend/Controllers/Views/course.cs" Line="48" Column="10" />
+      <File FileName="chatbot_backend/Controllers/Views/frontpage.cs" Line="5" Column="1" />
+      <File FileName="chatbot_backend/Controllers/Welcome.cs" Line="3" Column="1" />
+      <File FileName="chatbot_backend/Startup.cs" Line="32" Column="38" />
+    </Files>
+    <Pads>
+      <Pad Id="ProjectPad">
+        <State name="__root__">
+          <Node name="chatbot_backend" expanded="True">
+            <Node name="chatbot_backend" expanded="True">
+              <Node name="Controllers" expanded="True">
+                <Node name="Views" expanded="True">
+                  <Node name="course.cs" selected="True" />
+                </Node>
+              </Node>
+              <Node name="Models" expanded="True">
+                <Node name="Courses" expanded="True">
+                  <Node name="DataReading" expanded="True" />
+                </Node>
+              </Node>
+            </Node>
+          </Node>
+        </State>
+      </Pad>
+      <Pad Id="MonoDevelop.Debugger.WatchPad">
+        <State>
+          <Value>dr[0]</Value>
+        </State>
+      </Pad>
+    </Pads>
+  </MonoDevelop.Ide.Workbench>
+  <MonoDevelop.Ide.ItemProperties.chatbot__backend PreferredExecutionTarget="/Applications/Google Chrome.app" />
+  <MonoDevelop.Ide.DebuggingService.PinnedWatches />
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" />
+  <MonoDevelop.Ide.DebuggingService.Breakpoints>
+    <BreakpointStore>
+      <Breakpoint file="/Users/mathiasgammelgaard/Desktop/Chatbot/chatbot_backend_2/chatbot_backend/Controllers/Views/frontpage.cs" relfile="chatbot_backend/Controllers/Views/frontpage.cs" line="73" column="1" />
+    </BreakpointStore>
+  </MonoDevelop.Ide.DebuggingService.Breakpoints>
+  <MultiItemStartupConfigurations />
+</Properties>
