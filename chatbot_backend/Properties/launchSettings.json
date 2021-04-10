@@ -18,8 +18,6 @@
     },
     "chatbot_backend": {
       "commandName": "Project",
-      "launchBrowser": true,
-      "launchUrl": "/api/v1",
       "applicationUrl": "http://localhost:5001",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",

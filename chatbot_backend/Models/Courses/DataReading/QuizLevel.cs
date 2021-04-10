@@ -23,9 +23,9 @@ namespace chatbot_backend.Models {
                 if (value != null)
                 {
                     questionsData = new List<(int, Question)>();
-                    for (int i = 1; i <= value.Count; i++)
+                    for (int i = 0; i < value.Count; i++)
                     {
-                        questionsData.Add((i, value[i-1]));
+                        questionsData.Add((i, value[i]));
                     }
                 }
             }
@@ -47,7 +47,7 @@ namespace chatbot_backend.Models {
         }
 
         public void SortQuestions() {
-            questionsData.Sort((x, y) => y.Item1.CompareTo(x.Item1));
+            questionsData.Sort((x, y) => x.Item1.CompareTo(y.Item1));
         }
     }
 }

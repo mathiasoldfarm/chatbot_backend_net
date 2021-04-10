@@ -3,11 +3,15 @@ using System.Collections.Generic;
 
 namespace chatbot_backend.Models {
     public static class Courses {
-        public static List<Course> courses;
+        public static CoursesReader CourseData;
 
         public static void FetchCoursesData() {
-            Reader reader = new Reader();
-            courses = reader.run();
+            CoursesReader reader = new CoursesReader();
+            CourseData = reader.run();
+        }
+
+        public static Section GetSectionById(int sectionId) {
+            return CourseData.sections[sectionId];
         }
     }
 }

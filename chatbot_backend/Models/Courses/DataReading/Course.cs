@@ -29,8 +29,8 @@ namespace chatbot_backend.Models {
             {
                 if (value != null) {
                     sectionsData = new List<(int, Section)>();
-                    for (int i = 1; i <= value.Count; i++) {
-                        sectionsData.Add((i, value[i-1]));
+                    for (int i = 0; i < value.Count; i++) {
+                        sectionsData.Add((i, value[i]));
                     }
                 }
             }
@@ -57,7 +57,7 @@ namespace chatbot_backend.Models {
         }
 
         public void SortSections() {
-            sectionsData.Sort((x, y) => y.Item1.CompareTo(x.Item1));
+            sectionsData.Sort((x, y) => x.Item1.CompareTo(y.Item1));
         }
     }
 }

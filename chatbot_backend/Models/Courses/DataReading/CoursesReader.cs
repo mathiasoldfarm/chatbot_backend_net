@@ -1,26 +1,22 @@
 ﻿using System;
 using System.Data;
 using System.Collections.Generic;
-using System.IO;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using System.Linq;
 using Npgsql;
 
 namespace chatbot_backend.Models {
-    public class Reader {
-        private Dictionary<int, Answer> answers;
-        private Dictionary<int, Question> questions;
-        private Dictionary<int, QuizLevel> quizLevels;
-        private Dictionary<int, Quiz> quizzes;
-        private Dictionary<int, DescriptionLevelCategory> descriptionLevelCategories;
-        private Dictionary<int, DescriptionLevel> descriptionLevels;
-        private Dictionary<int, Description> descriptions;
-        private Dictionary<int, Section> sections;
-        private Dictionary<int, CourseCategory> courseCategories;
-        private Dictionary<int, Course> courses;
+    public class CoursesReader {
+        public Dictionary<int, Answer> answers { get; private set; }
+        public Dictionary<int, Question> questions { get; private set; }
+        public Dictionary<int, QuizLevel> quizLevels { get; private set; }
+        public Dictionary<int, Quiz> quizzes { get; private set; }
+        public Dictionary<int, DescriptionLevelCategory> descriptionLevelCategories { get; private set; }
+        public Dictionary<int, DescriptionLevel> descriptionLevels { get; private set; }
+        public Dictionary<int, Description> descriptions { get; private set; }
+        public Dictionary<int, Section> sections { get; private set; }
+        public Dictionary<int, CourseCategory> courseCategories { get; private set; }
+        public Dictionary<int, Course> courses { get; private set; }
 
-        public Reader() {
+        public CoursesReader() {
             answers = new Dictionary<int, Answer>();
             questions = new Dictionary<int, Question>();
             quizLevels = new Dictionary<int, QuizLevel>();
@@ -275,10 +271,10 @@ namespace chatbot_backend.Models {
             AddCourseSectionRelations(DBData.Tables[courseSectionRelations]);
         }
 
-        public List<Course> run() {
+        public CoursesReader run() {
             ReadCourses();
 
-            return courses.Values.ToList();
+            return this;
         }
     }
 }

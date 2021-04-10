@@ -11,36 +11,88 @@ namespace chatbot_backend.Controllers.Bot {
     [ApiController]
     [Route("bot/getanswer")]
     public class GetAnswer : ControllerBase {
-        private enum RequestType
-        {
-            Question,
-            NoType
+        private enum RequestType {
+            NoType,
+            Question
+        }
+        private enum DataFetchingRequest {
+            NoType,
+            FetchNextSection,
+            FetchPreviousSection
+        }
+        private enum FetchingDirection {
+            Forward,
+            Backward
+        }
+        private enum ContentTypes {
+            Quiz,
+            Description
         }
         private readonly string ChatbotUrlBase = "http://localhost:5000";
         private class ChatbotResponse
         {
-            string Answer { get; set; }
-            List<string> NextPossibleAnswers { get; set; }
-            RequestType Type { get; set; }
-            string HistoryRequest { get; set; }
+            public string Answer { get; private set; }
+            public List<string> NextPossibleAnswers { get; private set; }
+            public DataFetchingRequest Type { get; private set; }
+            public bool GetNewHistory { get; private set; }
+            public int NextContextId {
+                get; private set;
+            }
 
-            public ChatbotResponse(string answer, List<string> nextPossibleAnswers, int type, string historyRequest)
+            public ChatbotResponse(string answer, List<string> nextPossibleAnswers, int type, bool getNewHistory, int nextContextId)
             {
                 Answer = answer;
                 NextPossibleAnswers = nextPossibleAnswers;
-                Type = (RequestType)type;
-                HistoryRequest = historyRequest;
+                Type = (DataFetchingRequest)type;
+                GetNewHistory = getNewHistory;
+                NextContextId = nextContextId;
+            }
+        }
+        private class ClientData {
+            public Section Section {
+                get; private set;
+            }
+            public int ContextId {
+                get; private set;
+            }
+            public string Answer {
+                get; private set;
+            }
+            public int HistoryId {
+                get; private set;
+            }
+            public List<string> NextPossibleAnswers {
+                get; private set;
+            }
+
+
+            public ClientData(Section section, ChatbotResponse botResponse, int historyId) {
+                Section = section;
+                ContextId = botResponse.NextContextId;
+                Answer = botResponse.Answer;
+                HistoryId = historyId;
+                NextPossibleAnswers = botResponse.NextPossibleAnswers;
             }
         }
 
-        [HttpPost]
-        public async Task<IActionResult> Post(int userId, int courseId, int contextId, int historyId, int _type, string question) {
-            try {
-                RequestType type = (RequestType)_type;
-                string botQuery = await GenerateBotQuery(contextId, historyId, type, question);
-                ChatbotResponse response = await ChatbotRequest(botQuery);
+        int CourseId { get; set; } = -1;
+        int HistoryId { get; set; } = -1;
 
-                return Ok();
+        [HttpPost]
+        public async Task<IActionResult> Post(int userId, int courseId, int contextId, int initialHistoryId, int type, string question) {
+            try {
+                CourseId = courseId;
+
+                string botQuery = await GenerateBotQuery(contextId, initialHistoryId, (RequestType)type, question);
+                ChatbotResponse botResponse = await ChatbotRequest(botQuery);
+
+                HistoryId = await GetHistoryId(botResponse.GetNewHistory, initialHistoryId);
+
+                Section section = await GetDataForResponseByRequestType(botResponse.Type);
+                Session session = new Session(CourseId, section, question, botResponse.Answer, botResponse.NextContextId, HistoryId);
+                session.insert();
+
+                return Ok(new ClientData(section, botResponse, HistoryId));
             }
             catch (Exception e) {
                 return BadRequest($"Error: {e}");
@@ -49,13 +101,15 @@ namespace chatbot_backend.Controllers.Bot {
 
         // Generating query for chatbot service
         private async Task<string> GenerateBotQuery(int contextId, int historyId, RequestType type, string question) {
-            string context = await GetContext(type, contextId);
+            string context = await GetContext(type, contextId, historyId);
             string history = await GetHistory(historyId);
 
-            string url = $"{ChatbotUrlBase}/getanswer";
-            url += $"/type:{type}";
-            url += $"/question:{question}";
-            url += $"/context:{context}";
+            string url = $"{ChatbotUrlBase}/getanswer?";
+            url += $"type={type.ToString().ToLower()}";
+            url += $"&question={question}";
+            url += $"&context={context}";
+            url += $"&contextId={contextId}";
+            url += $"&history={history}";
 
             return url;
         }
@@ -82,25 +136,30 @@ namespace chatbot_backend.Controllers.Bot {
                 }
             }
 
-            return JsonConvert.SerializeObject(history);
+            try {
+                return JsonConvert.SerializeObject(history);
+            } catch (Exception e) {
+                throw new Exception($"Could not serialize history data: {e}");
+            }
         }
 
         // Generating pairs of question and correct answer for quizzes by context id
-        private async Task<string> GetQuestionCorrectAnswersByContextId(int contextId)
+        private async Task<string> GetQuestionCorrectAnswersByContextId(int contextId, int historyId)
         {
             string fetchQuery = @"
             SELECT question_id, correct
             FROM sessions
-            INNER JOIN course_sections ON course_sections.id = sessions.section_id
-            INNER JOIN course_quiz_levels ON course_quiz_levels.quiz_id = course_sections.quiz_id AND course_quiz_levels.level = sessions.level
-            INNER JOIN course_level_questions ON course_level_questions.quiz_level_id = course_quiz_levels.id
-            INNER JOIN course_questions ON course_questions.id = course_level_questions.question_id
-            WHERE context_id = @contextId";
+            INNER JOIN sections ON sections.id = sessions.section_id
+            INNER JOIN quiz_levels ON quiz_levels.quiz_id = sections.quiz_id AND quiz_levels.level = sessions.level
+            INNER JOIN quiz_levels_questions ON quiz_levels_questions.quiz_level_id = quiz_levels.id
+            INNER JOIN questions ON questions.id = quiz_levels_questions.question_id
+            WHERE context_id = @contextId AND history_id = @historyId";
 
             Dictionary<int, int> questionCorrectAnswers = new Dictionary<int, int>();
             await using (var cmd = new NpgsqlCommand(fetchQuery, DB.connection))
             {
                 cmd.Parameters.AddWithValue("contextId", contextId);
+                cmd.Parameters.AddWithValue("historyId", historyId);
                 await using (var reader = await cmd.ExecuteReaderAsync())
                 {
                     while (await reader.ReadAsync())
@@ -111,20 +170,24 @@ namespace chatbot_backend.Controllers.Bot {
                     }
                 }
             }
-
-            return JsonConvert.SerializeObject(questionCorrectAnswers);
+            try {
+                return JsonConvert.SerializeObject(questionCorrectAnswers);
+            } catch ( Exception e) {
+                throw new Exception($"Could not serialize question-correct answers relations: {e}");
+            }
         }
 
         // Fetching context giving request type
-        private async Task<string> GetContext(RequestType type, int contextId)
+        private async Task<string> GetContext(RequestType type, int contextId, int historyId)
         {
             if (type == RequestType.Question)
             {
-                return await GetQuestionCorrectAnswersByContextId(contextId);
+                return await GetQuestionCorrectAnswersByContextId(contextId, historyId);
             }
             return JsonConvert.SerializeObject(null);
         }
 
+        // Calling the chatbot service and receiving response
         private async Task<ChatbotResponse> ChatbotRequest(string query)
         {
             HttpClient client = new HttpClient();
@@ -136,7 +199,130 @@ namespace chatbot_backend.Controllers.Bot {
             }
 
             string content = await response.Content.ReadAsStringAsync();
-            return JsonConvert.DeserializeObject<ChatbotResponse>(content);
+            try {
+                return JsonConvert.DeserializeObject<ChatbotResponse>(content);
+            } catch (Exception e) {
+                throw new Exception($"Could not de-serialize chatbot response: {e}");
+            }
+        }
+
+        // Fetching new history id if necessary
+        private async Task<int> GetHistoryId(bool getNewHistory, int initialHistoryId) {
+            if ( !getNewHistory ) {
+                return initialHistoryId;
+            }
+            string selectNewHistoryIdQuery = @"
+                WITH history AS (
+	                SELECT history_id + 1
+	                FROM sessions
+	                GROUP BY history_id
+	                ORDER BY history_id DESC
+	                LIMIT 1
+                )
+                SELECT
+                CASE
+	                WHEN NOT EXISTS (SELECT * FROM history) THEN 1
+	                WHEN (SELECT * FROM history) IS NULL THEN 1
+	                ELSE (SELECT * FROM history)
+                END
+                AS history_id
+                FROM sections
+                LIMIT 1
+            ";
+            int historyId = -1;
+            await using (var cmd = new NpgsqlCommand(selectNewHistoryIdQuery, DB.connection)) {
+                await using (var reader = await cmd.ExecuteReaderAsync()) {
+                    while (await reader.ReadAsync()) {
+                        historyId = (int)reader[0];
+                    }
+                }
+            }
+            if ( historyId == -1 ) {
+                throw new Exception("History Id couldn't be fetched.");
+            }
+
+            return historyId;
+        }
+
+        // Fetches the next section id and the given section data
+        private async Task<Section> GetDataForResponseByRequestType(DataFetchingRequest dataFetchingRequest) {
+            int nextSectionId;
+            switch (dataFetchingRequest) {
+                case DataFetchingRequest.NoType:
+                    return null;
+                case DataFetchingRequest.FetchNextSection:
+                    nextSectionId = await FetchNextSectionId();
+                    break;
+                case DataFetchingRequest.FetchPreviousSection:
+                    nextSectionId = await FetchPreviousSectionId();
+                    break;
+                default:
+                    throw new Exception("DataFetchingRequest unknown");
+            }
+
+            return Courses.GetSectionById(nextSectionId);
+
+        }
+
+        // Fetching next section id
+        private async Task<int> FetchNextSectionId() {
+            return await FetchSectionId(FetchingDirection.Forward, 1);
+        }
+
+        // Fetching previous section id
+        private async Task<int> FetchPreviousSectionId() {
+            return await FetchSectionId(FetchingDirection.Backward, 1);
+        }
+
+        // Fetching section id at N steps in either direction
+        private async Task<int> FetchSectionId(FetchingDirection direction, int nSteps) {
+            if (CourseId == -1 || HistoryId == -1) {
+                throw new Exception("Course id og history id or both were not set. They're required for the method");
+            }
+            string directionSymbol = direction == FetchingDirection.Forward ? "+" : "-";
+            string selectQuery = $@"
+                WITH newSectionId AS (
+	                SELECT ""order"" {directionSymbol} @nSteps FROM courses_sections
+                    INNER JOIN sessions
+                    ON courses_sections.course_id = sessions.course_id
+                    AND courses_sections.section_id = sessions.section_id
+                    WHERE history_id = @historyId
+                    ORDER BY sessions.id DESC
+                    LIMIT 1
+                )
+                SELECT sections.id
+                FROM sections
+                WHERE sections.id = (
+                  SELECT section_id FROM courses_sections
+                  WHERE course_id = @courseId AND ""order"" = (
+                    SELECT
+                    CASE
+                      WHEN NOT EXISTS(SELECT* FROM newSectionId ) THEN 0
+                      ELSE(SELECT * FROM newSectionId)
+                    END
+                  )
+                );
+            ";
+
+            int sectionId = -1;
+            await using (var cmd = new NpgsqlCommand(selectQuery, DB.connection)) {
+                cmd.Parameters.AddWithValue("courseId", CourseId);
+                cmd.Parameters.AddWithValue("historyId", HistoryId);
+                cmd.Parameters.AddWithValue("nSteps", nSteps);
+                await using (var reader = await cmd.ExecuteReaderAsync()) {
+                    while (await reader.ReadAsync()) {
+                        sectionId = (int)reader[0];
+                    }
+                }
+            }
+
+            if (sectionId == -1) {
+                throw new Exception("Section Id couldn't be fetched.");
+            }
+
+            return sectionId;
         }
     }
 }
+
+// TODO: Handle levels in quiz / description
