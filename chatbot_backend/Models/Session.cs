@@ -35,7 +35,11 @@ namespace chatbot_backend.Models {
             // TODO: Handle level in session
 
             CourseId = courseId;
-            SectionId = section.id;
+            if (section == null) {
+                SectionId = -1;
+            } else {
+                SectionId = section.id;
+            }
             Question = question;
             Answer = answer;
             Time = DateTime.Now;
@@ -46,7 +50,11 @@ namespace chatbot_backend.Models {
         public void insert() {
             NpgsqlCommand query = new NpgsqlCommand("INSERT INTO sessions(course_id, section_id, level, question, answer, time, context_id, history_id) VALUES(@courseId, @sectionId, @level, @question, @answer, @time, @contextId, @historyId)", DB.connection);
             query.Parameters.AddWithValue("courseId", CourseId);
-            query.Parameters.AddWithValue("sectionId", SectionId);
+            if ( SectionId == -1 ) {
+                query.Parameters.AddWithValue("sectionId", DBNull.Value);
+            } else {
+                query.Parameters.AddWithValue("sectionId", SectionId);
+            }
             query.Parameters.AddWithValue("level", Level);
             query.Parameters.AddWithValue("question", Question);
             query.Parameters.AddWithValue("answer", Answer);

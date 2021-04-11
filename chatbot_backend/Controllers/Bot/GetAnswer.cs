@@ -13,12 +13,16 @@ namespace chatbot_backend.Controllers.Bot {
     public class GetAnswer : ControllerBase {
         private enum RequestType {
             NoType,
-            Question
+            Question,
+            Section,
+            Search
         }
         private enum DataFetchingRequest {
             NoType,
             FetchNextSection,
-            FetchPreviousSection
+            FetchPreviousSection,
+            FetchSectionById,
+            SearchForContent
         }
         private enum FetchingDirection {
             Forward,
@@ -39,6 +43,15 @@ namespace chatbot_backend.Controllers.Bot {
                 get; private set;
             }
 
+            public void PickAnswer(int i) {
+                string[] possibleAnswers = Answer.Split("|");
+                if ( possibleAnswers.Length - 1 < i ) {
+                    throw new Exception($"You can't pick an answer at index {i} of {possibleAnswers.Length} answers given by that chatbot service ");
+                }
+
+                Answer = possibleAnswers[i];
+            }
+
             public ChatbotResponse(string answer, List<string> nextPossibleAnswers, int type, bool getNewHistory, int nextContextId)
             {
                 Answer = answer;
@@ -50,6 +63,10 @@ namespace chatbot_backend.Controllers.Bot {
         }
         private class ClientData {
             public Section Section {
+                get; private set;
+            }
+            public int CourseId
+            {
                 get; private set;
             }
             public int ContextId {
@@ -66,33 +83,40 @@ namespace chatbot_backend.Controllers.Bot {
             }
 
 
-            public ClientData(Section section, ChatbotResponse botResponse, int historyId) {
+            public ClientData(Section section, int courseId, ChatbotResponse botResponse, int historyId) {
                 Section = section;
                 ContextId = botResponse.NextContextId;
                 Answer = botResponse.Answer;
                 HistoryId = historyId;
                 NextPossibleAnswers = botResponse.NextPossibleAnswers;
+                CourseId = courseId;
             }
         }
 
         int CourseId { get; set; } = -1;
         int HistoryId { get; set; } = -1;
+        string Question { get; set; }
+        RequestType _Type { get; set; }
+        ChatbotResponse botResponse { get; set; }
 
         [HttpPost]
         public async Task<IActionResult> Post(int userId, int courseId, int contextId, int initialHistoryId, int type, string question) {
             try {
                 CourseId = courseId;
+                _Type = (RequestType)type;
+                Question = question;
 
-                string botQuery = await GenerateBotQuery(contextId, initialHistoryId, (RequestType)type, question);
-                ChatbotResponse botResponse = await ChatbotRequest(botQuery);
+
+                string botQuery = await GenerateBotQuery(contextId, initialHistoryId);
+                botResponse = await ChatbotRequest(botQuery);
 
                 HistoryId = await GetHistoryId(botResponse.GetNewHistory, initialHistoryId);
 
                 Section section = await GetDataForResponseByRequestType(botResponse.Type);
-                Session session = new Session(CourseId, section, question, botResponse.Answer, botResponse.NextContextId, HistoryId);
+                Session session = new Session(CourseId, section, Question, botResponse.Answer, botResponse.NextContextId, HistoryId);
                 session.insert();
 
-                return Ok(new ClientData(section, botResponse, HistoryId));
+                return Ok(new ClientData(section, courseId, botResponse, HistoryId));
             }
             catch (Exception e) {
                 return BadRequest($"Error: {e}");
@@ -100,13 +124,13 @@ namespace chatbot_backend.Controllers.Bot {
         }
 
         // Generating query for chatbot service
-        private async Task<string> GenerateBotQuery(int contextId, int historyId, RequestType type, string question) {
-            string context = await GetContext(type, contextId, historyId);
+        private async Task<string> GenerateBotQuery(int contextId, int historyId) {
+            string context = await GetContext(contextId, historyId);
             string history = await GetHistory(historyId);
 
             string url = $"{ChatbotUrlBase}/getanswer?";
-            url += $"type={type.ToString().ToLower()}";
-            url += $"&question={question}";
+            url += $"type={_Type.ToString().ToLower()}";
+            url += $"&question={Question}";
             url += $"&context={context}";
             url += $"&contextId={contextId}";
             url += $"&history={history}";
@@ -178,9 +202,9 @@ namespace chatbot_backend.Controllers.Bot {
         }
 
         // Fetching context giving request type
-        private async Task<string> GetContext(RequestType type, int contextId, int historyId)
+        private async Task<string> GetContext(int contextId, int historyId)
         {
-            if (type == RequestType.Question)
+            if (_Type == RequestType.Question)
             {
                 return await GetQuestionCorrectAnswersByContextId(contextId, historyId);
             }
@@ -256,12 +280,36 @@ namespace chatbot_backend.Controllers.Bot {
                 case DataFetchingRequest.FetchPreviousSection:
                     nextSectionId = await FetchPreviousSectionId();
                     break;
+                case DataFetchingRequest.FetchSectionById:
+                    nextSectionId = GetSectionIdFromQuestion();
+                    break;
+                case DataFetchingRequest.SearchForContent:
+                    int sectionIdFound = Courses.SearchForSectionId(Question);
+                    if (sectionIdFound == -1) {
+                        botResponse.PickAnswer(1);
+                        return null;
+                    }
+                    nextSectionId = sectionIdFound;
+                    botResponse.PickAnswer(0);
+                    break;
                 default:
                     throw new Exception("DataFetchingRequest unknown");
             }
 
             return Courses.GetSectionById(nextSectionId);
 
+        }
+
+        // Getting section ID from question message
+        private int GetSectionIdFromQuestion()
+        {
+            switch(_Type)
+            {
+                case RequestType.Section:
+                    return Int32.Parse(Question);
+                default:
+                    throw new Exception("The request type has not implemented a way to get the section id from the request type");
+            }
         }
 
         // Fetching next section id
