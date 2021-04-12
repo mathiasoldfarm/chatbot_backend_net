@@ -11,9 +11,13 @@
     <Folder Include="Models\Courses\" />
     <Folder Include="Models\Courses\DataReading\" />
     <Folder Include="Controllers\Bot\" />
+    <Folder Include="Controllers\Users\" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageReference Include="Npgsql" Version="5.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="3.1.14" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication" Version="2.2.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="3.1.14" />
   </ItemGroup>
 </Project>
