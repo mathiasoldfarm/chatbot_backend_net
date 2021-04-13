@@ -12,6 +12,7 @@
     <Folder Include="Models\Courses\DataReading\" />
     <Folder Include="Controllers\Bot\" />
     <Folder Include="Controllers\Users\" />
+    <Folder Include="Controllers\Views\Account\" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
