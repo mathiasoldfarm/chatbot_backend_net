@@ -1,14 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using chatbot_backend.Models;
 using Npgsql;
-using System.Security.Cryptography;
-using System.Text.Json;
+using chatbot_backend.Controllers.Users;
 
 namespace chatbot_backend.Controllers {
     [ApiController]
@@ -20,56 +16,62 @@ namespace chatbot_backend.Controllers {
         }
         [HttpPost]
         public async Task<IActionResult> Post([FromBody] Data data ) {
-            string email = data.email;
-            string password = data.password;
-            if ( !TestEmail(email )) {
-                return BadRequest("Email is not correct.");
-            }
-            if ( !TestPassword(password)) {
-                return BadRequest("Password is not correct.");
-            }
-            bool succesfullyCreatedUser = await CreateUserIfNotExists(email, password);
-            if ( succesfullyCreatedUser ) {
+            try {
+                string email = data.email;
+                string password = data.password;
+
+                TestEmail(email);
+                TestPassword(password);
+
+                CreateUserIfNotExists(email, password);
+
+                SendResetLink.SendVerificationLink(data.email, "verification", "verify");
                 return Ok("User was succesfully created. Check your e-mail for confirmation.");
-            } else {
-                return BadRequest("The email was already registered. Please try to log in.");
+            } catch (Exception e) {
+                return BadRequest(e.ToString());
             }
         }
 
-        private bool TestEmail(string email) {
+        public static void TestEmail(string email) {
             string pattern = @"[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?";
             Regex rg = new Regex(pattern);
-            return rg.IsMatch(email);
+            if ( !rg.IsMatch(email)) {
+                throw new Exception("Email is not valid.");
+            }
         }
 
-        private bool TestPassword(string password) {
-            string pattern = @"^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[\+!@#\$%\^&\*])(?=.{8,})";
-            Regex rg = new Regex(pattern);
-            return rg.IsMatch(password);
+        public static void TestPassword(string password) {
+            bool atLeast1Character = new Regex("(?=.*[A-z])").IsMatch(password);
+            bool atLeast1LowerCaseCharacter = new Regex("(?=.*[a-z])").IsMatch(password);
+            bool atLeast1UpperCaseCharacter = new Regex("(?=.*[A-Z])").IsMatch(password);
+            bool atLeast1digit = new Regex("(?=.*[0-9])").IsMatch(password);
+            bool atLeast1SpecialCharacter = new Regex("([^A-Za-z0-9])").IsMatch(password);
+            bool atLeast8CharactersLong = new Regex("(?=.{8,})").IsMatch(password);
+
+            if ( !atLeast1Character ) {
+                throw new Exception("The password must contain at least one character");
+            } else if ( !atLeast1LowerCaseCharacter ) {
+                throw new Exception("The password must contain at least one lowercase character");
+            } else if ( !atLeast1UpperCaseCharacter ) {
+                throw new Exception("The password must contain at least one uppercase character");
+            } else if ( !atLeast1digit ) {
+                throw new Exception("The password must contain at least one digit");
+            } else if ( !atLeast1SpecialCharacter ) {
+                throw new Exception("The password must contain at least one special character");
+            } else if ( !atLeast8CharactersLong ) {
+                throw new Exception("The password must be at least 8 characters long");
+            }
         }
 
-        private async Task<bool> CreateUserIfNotExists(string email, string password) {
+        private void CreateUserIfNotExists(string email, string password) {
             try {
                 string insertQuery = @"INSERT INTO users(email, password) VALUES(@email, @password)";
                 NpgsqlCommand cmd = new NpgsqlCommand(insertQuery, DB.connection);
                 cmd.Parameters.AddWithValue("email", email);
-                cmd.Parameters.AddWithValue("password", ComputeHash(password));
+                cmd.Parameters.AddWithValue("password", Hashing.Compute(password));
                 cmd.ExecuteNonQuery();
-
-                return true;
             } catch(Exception e) {
-                return false;
-            }
-        }
-
-        private string ComputeHash(string password) {
-            using (SHA256 sha256Hash = SHA256.Create()) {
-                byte[] bytes = sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(password)); 
-                StringBuilder builder = new StringBuilder();
-                for (int i = 0; i < bytes.Length; i++) {
-                    builder.Append(bytes[i].ToString("x2"));
-                }
-                return builder.ToString();
+                throw new Exception("The email was already registered. Please try to log in.");
             }
         }
     }

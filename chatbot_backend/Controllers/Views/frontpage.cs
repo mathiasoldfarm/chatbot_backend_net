@@ -51,7 +51,7 @@ namespace chatbot_backend.Controllers.Views {
                 return Ok(categories);
             }
             catch (Exception e) {
-                return BadRequest($"Error: {e}");
+                return BadRequest(e.ToString());
             }
         }
     }
