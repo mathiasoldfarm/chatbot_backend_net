@@ -119,7 +119,7 @@ namespace chatbot_backend.Controllers.Bot {
                 return Ok(new ClientData(section, courseId, botResponse, HistoryId));
             }
             catch (Exception e) {
-                return BadRequest($"Error: {e}");
+                return BadRequest(e.ToString());
             }
         }
 
