@@ -15,12 +15,28 @@ namespace chatbot_backend.Controllers {
         public class Response {
             public string Message { get; set; }
             public string Token { get; set; }
+            public string Type {
+                get; set;
+            }
 
             public Response(string message, string token) {
                 Message = message;
                 Token = token;
             }
+
+            public Response(Exception e) {
+                Message = e.Message;
+                switch (Message) {
+                    case "The email could not be found":
+                        Type = "email";
+                        break;
+                    case "The password was not correct for the given account.":
+                        Type = "password";
+                        break;
+                }
+            }
         }
+
         [HttpPost]
         public async Task<IActionResult> Post([FromBody] Data data) {
             try {
@@ -55,7 +71,7 @@ namespace chatbot_backend.Controllers {
                 string token = TokenService.CreateToken(email);
                 return Ok(new Response("You was succesfully authenticated", token));
             } catch (Exception e) {
-                return BadRequest(e.ToString());
+                return BadRequest(new Response(e));
             }
         }
     }

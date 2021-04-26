@@ -43,7 +43,7 @@ namespace chatbot_backend.Controllers.Views {
 
                 return Ok();
             } catch (Exception e) {
-                return BadRequest(e.ToString());
+                return BadRequest(e.Message);
             }
         }
     }

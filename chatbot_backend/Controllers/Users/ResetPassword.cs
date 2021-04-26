@@ -10,15 +10,17 @@ namespace chatbot_backend.Controllers.Users {
     public class ResetPassword : ControllerBase {
         public class Data {
             public int userId { get; set; }
-            public string oldPassword { get; set; }
-            public string newPassword { get; set; }
+            public string password { get; set; }
+            public string password2 {
+                get; set;
+            }
             public string verificationCode { get; set; }
         }
 
         [HttpPost]
         public async Task<IActionResult> Post([FromBody] Data data) {
             try {
-                Views.ResetPassword.verifyUserAndCode(data.userId, data.verificationCode, "password_reset_request", "password-reset link");
+                await Views.ResetPassword.verifyUserAndCode(data.userId, data.verificationCode, "password_reset_request", "password-reset link");
 
                 string fetchedPasswordHashed = "";
                 string fetchQuery = "SELECT password FROM users WHERE id = @id;";
@@ -26,26 +28,30 @@ namespace chatbot_backend.Controllers.Users {
                     cmd.Parameters.AddWithValue("id", data.userId);
                     await using (var reader = await cmd.ExecuteReaderAsync()) {
                         while (await reader.ReadAsync()) {
-                            fetchedPasswordHashed = (string)reader[1];
+                            fetchedPasswordHashed = (string)reader[0];
                         }
                     }
                 }
 
-                if (fetchedPasswordHashed != Hashing.Compute(data.oldPassword)) {
-                    throw new Exception("Current password is not correct");
-                }
+                CreateUser.TestPassword2(data.password, data.password2);
+                CreateUser.TestPassword(data.password);
 
-                CreateUser.TestPassword(data.newPassword);
+                string updateVerifiedQuery = @"
+                    UPDATE users SET password = @password WHERE id = @userId;
+                    DELETE FROM password_reset_request WHERE verification_code = @verificationCode AND ""user"" = (
+                        SELECT email FROM users WHERE id = @userId
+                    );
+                ";
 
-                string updateVerifiedQuery = "UPDATE users SET password = @password WHERE id = @userId";
                 NpgsqlCommand updateCmd = new NpgsqlCommand(updateVerifiedQuery, DB.connection);
-                updateCmd.Parameters.AddWithValue("password", data.newPassword);
+                updateCmd.Parameters.AddWithValue("password", Hashing.Compute(data.password));
                 updateCmd.Parameters.AddWithValue("userId", data.userId);
+                updateCmd.Parameters.AddWithValue("verificationCode", data.verificationCode);
                 updateCmd.ExecuteNonQuery();
 
-                return Ok();
+                return Ok("Your password was succesfully changed.");
             } catch (Exception e) {
-                return BadRequest(e.ToString());
+                return BadRequest(e.Message);
             }
         }
     }
@@ -59,14 +65,14 @@ namespace chatbot_backend.Controllers.Users {
         [HttpPost]
         public async Task<IActionResult> Post([FromBody] Data data) {
             try {
-                SendVerificationLink(data.email, "password_reset_request", "reset-password");
-                return Ok();
+                await SendVerificationLink(data.email, "password_reset_request", "reset-password");
+                return Ok("A link has been sent to your inbox.");
             } catch (Exception e) {
-                return BadRequest(e.ToString());
+                return BadRequest(e.Message);
             }
         }
 
-        public async static void SendVerificationLink(string email, string table, string prefix) {
+        public async static Task<bool> SendVerificationLink(string email, string table, string prefix) {
             Guid verification_code = Guid.NewGuid();
 
             string insertQuery = $@"
@@ -99,6 +105,8 @@ namespace chatbot_backend.Controllers.Users {
             string link = Contants.frontend_url + $"/{prefix}/{userId}/{verification_code}";
 
             // TODO: Send link
+
+            return true;
         }
     }
 }

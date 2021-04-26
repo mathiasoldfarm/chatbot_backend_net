@@ -10,14 +10,14 @@ namespace chatbot_backend.Controllers.Views {
         [HttpGet]
         public async Task<IActionResult> Get(int userId, string verificationCode) {
             try {
-                verifyUserAndCode(userId, verificationCode, "password_reset_request", "password-reset link");
+                await verifyUserAndCode(userId, verificationCode, "password_reset_request", "password-reset link");
                 return Ok();
             } catch (Exception e) {
-                return BadRequest(e.ToString());
+                return BadRequest(e.Message);
             }
         }
 
-        public static async void verifyUserAndCode(int userId, string verificationCode, string table, string name, int hoursLimit = 1) {
+        public static async Task<bool> verifyUserAndCode(int userId, string verificationCode, string table, string name, int hoursLimit = 1) {
             // Fetch email from userId
             string selectQuery = @"SELECT email
                 FROM users
@@ -63,6 +63,8 @@ namespace chatbot_backend.Controllers.Views {
             if (difference.TotalHours >= hoursLimit) {
                 throw new Exception($"The {name} expired. Try to resend and click on the link within {hoursLimit} hour.");
             }
+
+            return true;
         }
     }
 }

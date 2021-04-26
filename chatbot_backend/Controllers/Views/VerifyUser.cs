@@ -12,11 +12,17 @@ namespace chatbot_backend.Controllers.Views {
         [HttpGet]
         public async Task<IActionResult> Get(int userId, string verificationCode) {
             try {
-                ResetPassword.verifyUserAndCode(userId, verificationCode, "verification", "verification code");
+                await ResetPassword.verifyUserAndCode(userId, verificationCode, "verification", "verification code");
 
-                string updateVerifiedQuery = "UPDATE users SET verified = true WHERE id = @userId";
+                string updateVerifiedQuery = @"
+                    UPDATE users SET verified = true WHERE id = @userId;
+                    DELETE FROM verification WHERE verification_code = @verificationCode AND ""user"" = (
+                        SELECT email FROM users WHERE id = @userId
+                    );
+                ";
                 NpgsqlCommand updateCmd = new NpgsqlCommand(updateVerifiedQuery, DB.connection);
                 updateCmd.Parameters.AddWithValue("userId", userId);
+                updateCmd.Parameters.AddWithValue("verificationCode", verificationCode);
                 updateCmd.ExecuteNonQuery();
 
                 return Ok();
