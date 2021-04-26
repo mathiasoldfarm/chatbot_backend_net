@@ -14,6 +14,9 @@ namespace chatbot_backend.Controllers.Views {
     public class EditUser : ControllerBase {
         private class Response {
             public string firstname { get; set; }
+            public string lastname {
+                get; set;
+            }
             public string email { get; set; }
         }
         [HttpGet]
@@ -25,7 +28,7 @@ namespace chatbot_backend.Controllers.Views {
                 }
 
                 string fetchQuery = @"
-                SELECT firstname, email
+                SELECT firstname, lastname, email
                 FROM users
                 WHERE email = @email";
 
@@ -38,7 +41,10 @@ namespace chatbot_backend.Controllers.Views {
                                 response.firstname = (string)reader[0];
                             }
                             if (reader[1] != DBNull.Value) {
-                                response.email = (string)reader[1];
+                                response.lastname = (string)reader[1];
+                            }
+                            if (reader[2] != DBNull.Value) {
+                                response.email = (string)reader[2];
                             }
                         }
                     }

@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using System.Threading;
 
 namespace chatbot_backend.Controllers.Views {
     [ApiController]
@@ -34,7 +35,11 @@ namespace chatbot_backend.Controllers.Views {
                 NpgsqlCommand cmd = new NpgsqlCommand(updateQuery, DB.connection);
                 cmd.Parameters.AddWithValue("value", value);
                 cmd.Parameters.AddWithValue("email", email);
-                cmd.ExecuteNonQuery();
+                try {
+                    cmd.ExecuteNonQuery();
+                } catch (NpgsqlOperationInProgressException e) {
+                    Thread.Sleep(1000);
+                }
 
                 return Ok();
             } catch (Exception e) {
