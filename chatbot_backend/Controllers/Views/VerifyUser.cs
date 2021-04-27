@@ -16,18 +16,17 @@ namespace chatbot_backend.Controllers.Views {
 
                 string updateVerifiedQuery = @"
                     UPDATE users SET verified = true WHERE id = @userId;
-                    DELETE FROM verification WHERE verification_code = @verificationCode AND ""user"" = (
+                    DELETE FROM verification WHERE ""user"" = (
                         SELECT email FROM users WHERE id = @userId
                     );
                 ";
                 NpgsqlCommand updateCmd = new NpgsqlCommand(updateVerifiedQuery, DB.connection);
                 updateCmd.Parameters.AddWithValue("userId", userId);
-                updateCmd.Parameters.AddWithValue("verificationCode", verificationCode);
                 updateCmd.ExecuteNonQuery();
 
-                return Ok();
+                return Ok("Your account was succesfully verified");
             } catch (Exception e) {
-                return BadRequest(e.ToString());
+                return BadRequest(e.Message);
             }
         }
     }

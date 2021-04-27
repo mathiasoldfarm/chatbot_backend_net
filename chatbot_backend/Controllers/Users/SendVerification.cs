@@ -13,7 +13,7 @@ namespace chatbot_backend.Controllers.Users {
         [HttpPost]
         public async Task<IActionResult> Post([FromBody] Data data) {
             try {
-                await SendResetLink.SendVerificationLink(data.email, "verification", "verify");
+                await SendResetLink.SendVerificationLink(data.email, "verification", "verify", "verifying your account", "account-verification");
                 return Ok("A link has been sent to your inbox");
             } catch (Exception e) {
                 return BadRequest(e.Message);

@@ -38,7 +38,7 @@ namespace chatbot_backend.Controllers.Users {
 
                 string updateVerifiedQuery = @"
                     UPDATE users SET password = @password WHERE id = @userId;
-                    DELETE FROM password_reset_request WHERE verification_code = @verificationCode AND ""user"" = (
+                    DELETE FROM password_reset_request WHERE ""user"" = (
                         SELECT email FROM users WHERE id = @userId
                     );
                 ";
@@ -46,7 +46,6 @@ namespace chatbot_backend.Controllers.Users {
                 NpgsqlCommand updateCmd = new NpgsqlCommand(updateVerifiedQuery, DB.connection);
                 updateCmd.Parameters.AddWithValue("password", Hashing.Compute(data.password));
                 updateCmd.Parameters.AddWithValue("userId", data.userId);
-                updateCmd.Parameters.AddWithValue("verificationCode", data.verificationCode);
                 updateCmd.ExecuteNonQuery();
 
                 return Ok("Your password was succesfully changed.");
@@ -65,14 +64,14 @@ namespace chatbot_backend.Controllers.Users {
         [HttpPost]
         public async Task<IActionResult> Post([FromBody] Data data) {
             try {
-                await SendVerificationLink(data.email, "password_reset_request", "reset-password");
+                await SendVerificationLink(data.email, "password_reset_request", "reset-password", "resetting your password", "password-reset");
                 return Ok("A link has been sent to your inbox.");
             } catch (Exception e) {
                 return BadRequest(e.Message);
             }
         }
 
-        public async static Task<bool> SendVerificationLink(string email, string table, string prefix) {
+        public async static Task<bool> SendVerificationLink(string email, string table, string prefix, string mailTypeName, string mailLinkTitle) {
             Guid verification_code = Guid.NewGuid();
 
             string insertQuery = $@"
@@ -104,7 +103,15 @@ namespace chatbot_backend.Controllers.Users {
 
             string link = Contants.frontend_url + $"/{prefix}/{userId}/{verification_code}";
 
-            // TODO: Send link
+            Mailer.Send(
+                $@"
+                <p>Hi</p>
+                <p>Here is your requested link for {mailTypeName}:</p>
+                <a title=""{mailLinkTitle}"" href=""{link}"" target=""_blank"">{link}</a>
+                <p>It can only be used once and within 1 hour.</p>
+                ",
+                email
+            );
 
             return true;
         }

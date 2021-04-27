@@ -83,7 +83,7 @@ namespace chatbot_backend.Controllers {
                 TestPassword2(password, password2);
                 CreateUserIfNotExists(email, password);
 
-                SendResetLink.SendVerificationLink(data.email, "verification", "verify");
+                await SendResetLink.SendVerificationLink(data.email, "verification", "verify", "verifying your account", "account-verification");
                 return Ok("User was succesfully created. Check your e-mail for confirmation.");
             } catch (Exception e) {
                 return BadRequest(new Response(e));
