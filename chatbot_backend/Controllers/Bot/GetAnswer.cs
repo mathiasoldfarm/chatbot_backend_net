@@ -42,6 +42,9 @@ namespace chatbot_backend.Controllers.Bot {
             public int NextContextId {
                 get; private set;
             }
+            public bool SetDone {
+                get; private set;
+            }
 
             public void PickAnswer(int i) {
                 string[] possibleAnswers = Answer.Split("|");
@@ -52,13 +55,14 @@ namespace chatbot_backend.Controllers.Bot {
                 Answer = possibleAnswers[i];
             }
 
-            public ChatbotResponse(string answer, List<string> nextPossibleAnswers, int type, bool getNewHistory, int nextContextId)
+            public ChatbotResponse(string answer, List<string> nextPossibleAnswers, int type, bool getNewHistory, int nextContextId, bool setDone)
             {
                 Answer = answer;
                 NextPossibleAnswers = nextPossibleAnswers;
                 Type = (DataFetchingRequest)type;
                 GetNewHistory = getNewHistory;
                 NextContextId = nextContextId;
+                SetDone = setDone;
             }
         }
         private class ClientData {
@@ -81,15 +85,21 @@ namespace chatbot_backend.Controllers.Bot {
             public List<string> NextPossibleAnswers {
                 get; private set;
             }
+            public int SectionDone {
+                get; private set;
+            }
 
 
-            public ClientData(Section section, int courseId, ChatbotResponse botResponse, int historyId) {
+            public ClientData(Section section, int courseId, ChatbotResponse botResponse, int historyId, int sectionDone) {
                 Section = section;
                 ContextId = botResponse.NextContextId;
                 Answer = botResponse.Answer;
                 HistoryId = historyId;
-                NextPossibleAnswers = botResponse.NextPossibleAnswers;
+                if ( section.quiz == null ) {
+                    NextPossibleAnswers = botResponse.NextPossibleAnswers;
+                }
                 CourseId = courseId;
+                SectionDone = sectionDone;
             }
         }
 
@@ -113,13 +123,14 @@ namespace chatbot_backend.Controllers.Bot {
                 HistoryId = await GetHistoryId(botResponse.GetNewHistory, initialHistoryId);
 
                 Section section = await GetDataForResponseByRequestType(botResponse.Type);
+                int SectionDone = await SetUserSectionDone(contextId, HistoryId, userId, botResponse.SetDone);
                 Session session = new Session(CourseId, section, Question, botResponse.Answer, botResponse.NextContextId, HistoryId);
                 session.insert();
 
-                return Ok(new ClientData(section, courseId, botResponse, HistoryId));
+                return Ok(new ClientData(section, courseId, botResponse, HistoryId, SectionDone));
             }
             catch (Exception e) {
-                return BadRequest(e.ToString());
+                return BadRequest(e.Message);
             }
         }
 
@@ -369,6 +380,37 @@ namespace chatbot_backend.Controllers.Bot {
             }
 
             return sectionId;
+        }
+
+        private async Task<int> SetUserSectionDone(int contextId, int historyId, int userId, bool SetDone) {
+            int previousSection = -1;
+            if ( SetDone ) {
+                string selectQuery = "SELECT section_id FROM sessions WHERE history_id = @historyId and context_id = @contextId";
+                await using (var cmd = new NpgsqlCommand(selectQuery, DB.connection)) {
+                    cmd.Parameters.AddWithValue("historyId", historyId);
+                    cmd.Parameters.AddWithValue("contextId", contextId);
+                    await using (var reader = await cmd.ExecuteReaderAsync()) {
+                        while (await reader.ReadAsync()) {
+                            previousSection = (int)reader[0];
+                        }
+                    }
+                }
+
+                try {
+                    string insertQuery = @"INSERT INTO users_sections_done(""user"", ""section"") VALUES(@userId,@sectionId)";
+
+                    NpgsqlCommand insertCmd = new NpgsqlCommand(insertQuery, DB.connection);
+                    insertCmd.Parameters.AddWithValue("userId", userId);
+                    insertCmd.Parameters.AddWithValue("sectionId", previousSection);
+                    insertCmd.ExecuteNonQuery();
+
+                } catch (Exception) {
+
+                }
+            }
+            
+
+            return previousSection;
         }
     }
 }

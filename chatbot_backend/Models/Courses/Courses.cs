@@ -25,6 +25,9 @@ namespace chatbot_backend.Models {
 
         public static int SearchForSectionId(string toSearchFor)
         {
+            if ( toSearchFor == null ) {
+                toSearchFor = "";
+            }
             int NumberOfOccurences(Section section)
             {
                 Description description = CourseData.descriptions[section.description.id];

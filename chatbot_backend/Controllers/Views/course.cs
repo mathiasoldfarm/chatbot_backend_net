@@ -5,9 +5,12 @@ using System.Threading.Tasks;
 using Npgsql;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace chatbot_backend.Controllers.Views {
     [ApiController]
+    [Authorize]
     [Route("views/learn/{courseTitle}")]
     public class Course : ControllerBase {
         private class SectionData {
@@ -27,18 +30,23 @@ namespace chatbot_backend.Controllers.Views {
                 get; private set;
             }
 
+            public bool done {
+                get; private set;
+            }
+
             public List<SectionData> children {
                 get; private set;
             }
 
-            public SectionData(int _id, string _name, int _parent, int _order) : this(_id, _name, _order) {
+            public SectionData(int _id, string _name, int _parent, int _order, bool _done) : this(_id, _name, _order, _done) {
                 parent = _parent;
             }
 
-            public SectionData(int _id, string _name, int _order) {
+            public SectionData(int _id, string _name, int _order, bool _done) {
                 id = _id;
                 name = _name;
                 order = _order;
+                done = _done;
                 children = new List<SectionData>();
             }
 
@@ -50,11 +58,19 @@ namespace chatbot_backend.Controllers.Views {
         [HttpGet]
         public async Task<IActionResult> Get(string courseTitle) {
             try {
+                string userEmail = "";
+                if (HttpContext.User.Identity is ClaimsIdentity identity) {
+                    userEmail = (string)identity.FindFirst(ClaimTypes.Email).Value;
+                }
+
                 string fetchQuery = @"
-                SELECT sections.id, section_name, parent_id, courses_sections.order
+                SELECT sections.id, section_name, parent_id, courses_sections.order, users_sections_done.""user"" AS user_done
                 FROM courses
                 INNER JOIN courses_sections ON courses_sections.course_id = courses.id
                 INNER JOIN sections ON courses_sections.section_id = sections.id
+                LEFT OUTER JOIN users_sections_done ON users_sections_done.""user"" = (
+                    SELECT ""id"" FROM users WHERE email = @userEmail
+                ) AND users_sections_done.""section"" = sections.id
                 WHERE LOWER(courses.title) = @course_title
                 ORDER BY courses_sections.order";
 
@@ -62,18 +78,20 @@ namespace chatbot_backend.Controllers.Views {
                 Dictionary<int, SectionData> sectionsDict = new Dictionary<int, SectionData>();
                 await using (var cmd = new NpgsqlCommand(fetchQuery, DB.connection)) {
                     cmd.Parameters.AddWithValue("course_title", courseTitle);
+                    cmd.Parameters.AddWithValue("userEmail", userEmail);
                     await using (var reader = await cmd.ExecuteReaderAsync()) {
                         while (await reader.ReadAsync()) {
                             int sectionId = (int)reader[0];
                             string sectionName = (string)reader[1];
                             int order = (int)reader[3];
+                            bool done = reader[4] != DBNull.Value;
 
                             SectionData section;
                             if (reader[2] != DBNull.Value) {
                                 int parentSectionId = (int)reader[2];
-                                section = new SectionData(sectionId, sectionName, parentSectionId, order);
+                                section = new SectionData(sectionId, sectionName, parentSectionId, order, done);
                             } else {
-                                section = new SectionData(sectionId, sectionName, order);
+                                section = new SectionData(sectionId, sectionName, order, done);
                             }
 
                             sectionsDict.Add(sectionId, section);
