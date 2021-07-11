@@ -12,7 +12,7 @@ namespace chatbot_backend.Controllers {
     [Route("users/create")]
     public class CreateUser : ControllerBase {
         public class Data {
-            public string email { get; set; }
+             public string email { get; set; }
             public string password { get; set; }
             public string password2 {
                 get; set;
@@ -129,7 +129,7 @@ namespace chatbot_backend.Controllers {
 
         private void CreateUserIfNotExists(string email, string password) {
             try {
-                string insertQuery = @"INSERT INTO users(email, password) VALUES(@email, @password)";
+                string insertQuery = @"INSERT INTO users(email, password) VALUES(LOWER(@email), @password)";
                 NpgsqlCommand cmd = new NpgsqlCommand(insertQuery, DB.connection);
                 cmd.Parameters.AddWithValue("email", email);
                 cmd.Parameters.AddWithValue("password", Hashing.Compute(password));

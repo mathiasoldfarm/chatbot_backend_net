@@ -48,7 +48,7 @@ namespace chatbot_backend.Controllers {
                 string fetchedEmail = "";
                 string fetchedPasswordHashed = "";
                 bool verified = false;
-                string fetchQuery = "SELECT email, password, verified FROM users WHERE email = @email;";
+                string fetchQuery = "SELECT email, password, verified FROM users WHERE email = LOWER(@email);";
                 await using (var cmd = new NpgsqlCommand(fetchQuery, DB.connection)) {
                     cmd.Parameters.AddWithValue("email", email);
                     await using (var reader = await cmd.ExecuteReaderAsync()) {

@@ -4,6 +4,7 @@ using Npgsql;
 using chatbot_backend.Models;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Linq;
 using System.Security.Claims;
 
 namespace chatbot_backend.Controllers.Views {
@@ -25,6 +26,10 @@ namespace chatbot_backend.Controllers.Views {
             }
         }
         private class CategoryData {
+            public string title {
+                get; private set;
+            }
+
             public string color {
                 get; private set;
             }
@@ -33,7 +38,8 @@ namespace chatbot_backend.Controllers.Views {
                 get; private set;
             }
 
-            public CategoryData(string _color) {
+            public CategoryData(string _color, string _title) {
+                title = _title;
                 color = _color;
                 courses = new List<CourseStatusData>();
             }
@@ -89,14 +95,14 @@ namespace chatbot_backend.Controllers.Views {
                                 float status = Convert.ToSingle(reader[3]);
 
                                 if (!categories.ContainsKey(category)) {
-                                    categories[category] = new CategoryData(color);
+                                    categories[category] = new CategoryData(color, category);
                                 }
                                 categories[category].courses.Add(new CourseStatusData(course, status));
                             }
                         }
                     }
 
-                    return Ok(categories);
+                    return Ok(categories.Values.ToList());
                 }
 
                 fetchDataQuery = @"
@@ -112,14 +118,14 @@ namespace chatbot_backend.Controllers.Views {
                             string color = (string)reader[2];
 
                             if (!categories.ContainsKey(category)) {
-                                categories[category] = new CategoryData(color);
+                                categories[category] = new CategoryData(color, category);
                             }
                             categories[category].courses.Add(new CourseStatusData(course, 0));
                         }
                     }
                 }
 
-                return Ok(categories);
+                return Ok(categories.Values.ToList());
             } catch (Exception e) {
                 return BadRequest(e.ToString());
             }

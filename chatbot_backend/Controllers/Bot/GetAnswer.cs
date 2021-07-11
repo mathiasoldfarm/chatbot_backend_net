@@ -6,11 +6,20 @@ using System.Collections.Generic;
 using Newtonsoft.Json;
 using System.Threading.Tasks;
 using System.Net.Http;
+using System.Security.Claims;
 
 namespace chatbot_backend.Controllers.Bot {
     [ApiController]
     [Route("bot/getanswer")]
     public class GetAnswer : ControllerBase {
+        public class Data {
+            public int courseId { get; set; }
+            public int contextId { get; set; }
+            public int initialHistoryId { get; set; }
+            public int type { get; set; }
+            public string question { get; set; }
+        }
+
         private enum RequestType {
             NoType,
             Question,
@@ -33,8 +42,7 @@ namespace chatbot_backend.Controllers.Bot {
             Description
         }
         private readonly string ChatbotUrlBase = "http://localhost:5000";
-        private class ChatbotResponse
-        {
+        private class ChatbotResponse {
             public string Answer { get; private set; }
             public List<string> NextPossibleAnswers { get; private set; }
             public DataFetchingRequest Type { get; private set; }
@@ -48,15 +56,14 @@ namespace chatbot_backend.Controllers.Bot {
 
             public void PickAnswer(int i) {
                 string[] possibleAnswers = Answer.Split("|");
-                if ( possibleAnswers.Length - 1 < i ) {
+                if (possibleAnswers.Length - 1 < i) {
                     throw new Exception($"You can't pick an answer at index {i} of {possibleAnswers.Length} answers given by that chatbot service ");
                 }
 
                 Answer = possibleAnswers[i];
             }
 
-            public ChatbotResponse(string answer, List<string> nextPossibleAnswers, int type, bool getNewHistory, int nextContextId, bool setDone)
-            {
+            public ChatbotResponse(string answer, List<string> nextPossibleAnswers, int type, bool getNewHistory, int nextContextId, bool setDone) {
                 Answer = answer;
                 NextPossibleAnswers = nextPossibleAnswers;
                 Type = (DataFetchingRequest)type;
@@ -69,8 +76,7 @@ namespace chatbot_backend.Controllers.Bot {
             public Section Section {
                 get; private set;
             }
-            public int CourseId
-            {
+            public int CourseId {
                 get; private set;
             }
             public int ContextId {
@@ -95,7 +101,7 @@ namespace chatbot_backend.Controllers.Bot {
                 ContextId = botResponse.NextContextId;
                 Answer = botResponse.Answer;
                 HistoryId = historyId;
-                if ( section.quiz == null ) {
+                if (section.quiz == null) {
                     NextPossibleAnswers = botResponse.NextPossibleAnswers;
                 }
                 CourseId = courseId;
@@ -110,26 +116,28 @@ namespace chatbot_backend.Controllers.Bot {
         ChatbotResponse botResponse { get; set; }
 
         [HttpPost]
-        public async Task<IActionResult> Post(int userId, int courseId, int contextId, int initialHistoryId, int type, string question) {
+        public async Task<IActionResult> Post([FromBody] Data data) {
+            string userEmail = "";
+            if (HttpContext.User.Identity is ClaimsIdentity identity) {
+                userEmail = (string)identity.FindFirst(ClaimTypes.Email).Value;
+            }
+
             try {
-                CourseId = courseId;
-                _Type = (RequestType)type;
-                Question = question;
+                CourseId = data.courseId;
+                _Type = (RequestType)data.type;
+                Question = data.question;
 
-
-                string botQuery = await GenerateBotQuery(contextId, initialHistoryId);
+                string botQuery = await GenerateBotQuery(data.contextId, data.initialHistoryId);
                 botResponse = await ChatbotRequest(botQuery);
 
-                HistoryId = await GetHistoryId(botResponse.GetNewHistory, initialHistoryId);
-
+                HistoryId = await GetHistoryId(botResponse.GetNewHistory, data.initialHistoryId);
                 Section section = await GetDataForResponseByRequestType(botResponse.Type);
-                int SectionDone = await SetUserSectionDone(contextId, HistoryId, userId, botResponse.SetDone);
+                int SectionDone = await SetUserSectionDone(data.contextId, HistoryId, userEmail, botResponse.SetDone);
                 Session session = new Session(CourseId, section, Question, botResponse.Answer, botResponse.NextContextId, HistoryId);
                 session.insert();
 
-                return Ok(new ClientData(section, courseId, botResponse, HistoryId, SectionDone));
-            }
-            catch (Exception e) {
+                return Ok(new ClientData(section, data.courseId, botResponse, HistoryId, SectionDone));
+            } catch (Exception e) {
                 return BadRequest(e.Message);
             }
         }
@@ -234,11 +242,18 @@ namespace chatbot_backend.Controllers.Bot {
             }
 
             string content = await response.Content.ReadAsStringAsync();
+
+            ChatbotResponse botResponse;
             try {
-                return JsonConvert.DeserializeObject<ChatbotResponse>(content);
-            } catch (Exception e) {
+                botResponse = JsonConvert.DeserializeObject<ChatbotResponse>(content);
+             } catch (Exception e) {
                 throw new Exception($"Could not de-serialize chatbot response: {e}");
             }
+
+            if (botResponse.Type == DataFetchingRequest.NoType) {
+                throw new Exception("Bot couldn't process request");
+            }
+            return botResponse;
         }
 
         // Fetching new history id if necessary
@@ -382,7 +397,7 @@ namespace chatbot_backend.Controllers.Bot {
             return sectionId;
         }
 
-        private async Task<int> SetUserSectionDone(int contextId, int historyId, int userId, bool SetDone) {
+        private async Task<int> SetUserSectionDone(int contextId, int historyId, string userEmail, bool SetDone) {
             int previousSection = -1;
             if ( SetDone ) {
                 string selectQuery = "SELECT section_id FROM sessions WHERE history_id = @historyId and context_id = @contextId";
@@ -397,15 +412,17 @@ namespace chatbot_backend.Controllers.Bot {
                 }
 
                 try {
-                    string insertQuery = @"INSERT INTO users_sections_done(""user"", ""section"") VALUES(@userId,@sectionId)";
+                    string insertQuery = @"INSERT INTO users_sections_done(""user"", ""section"") VALUES((SELECT id FROM users WHERE email = @userEmail),@sectionId)";
 
                     NpgsqlCommand insertCmd = new NpgsqlCommand(insertQuery, DB.connection);
-                    insertCmd.Parameters.AddWithValue("userId", userId);
+                    insertCmd.Parameters.AddWithValue("userEmail", userEmail);
                     insertCmd.Parameters.AddWithValue("sectionId", previousSection);
                     insertCmd.ExecuteNonQuery();
 
-                } catch (Exception) {
-
+                } catch (PostgresException e) {
+                    if ( e.Code != "23505" ) {
+                        throw new Exception("Could not set users section done");
+                    }
                 }
             }
             
