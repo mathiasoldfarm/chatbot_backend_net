@@ -2,8 +2,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
 using chatbot_backend.Models;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using System.Threading;

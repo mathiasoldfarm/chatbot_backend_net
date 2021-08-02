@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using System.Text.RegularExpressions;
 
 namespace chatbot_backend.Models {
     public class Section {
@@ -18,11 +19,23 @@ namespace chatbot_backend.Models {
         public int parent {
             get; set;
         }
+        public bool usingQuiz {
+            get; set;
+        }
+        public bool usingDescription {
+            get; set;
+        }
 
         public Section(DataRow row) {
             try {
                 id = (int)row[0];
                 name = (string)row[1];
+                if (row[5] != DBNull.Value) {
+                    usingQuiz = (bool)row[5];
+                }
+                if (row[6] != DBNull.Value) {
+                    usingDescription = (bool)row[6];
+                }
             }
             catch {
                 throw new Exception("Constructor argument DataRow was expected to have two arguments of type int string");
@@ -31,20 +44,12 @@ namespace chatbot_backend.Models {
 
 
         public void AddDescription(Description _description) {
-            if ( quiz != null ) {
-                throw new Exception("Description cannot be set if quiz is not null");
-            } else {
-                description = _description;
-            }
+            description = _description;
+
         }
 
         public void AddQuiz(Quiz _quiz) {
-            if (description != null) {
-                throw new Exception("Quiz cannot be set if description is not null");
-            }
-            else {
-                quiz = _quiz;
-            }
+            quiz = _quiz;
         }
 
         public void AddParent(int id) {

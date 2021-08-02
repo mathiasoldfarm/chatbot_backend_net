@@ -114,23 +114,10 @@ namespace chatbot_backend.Models {
                 object quizId = row[2];
                 object descriptionId = row[3];
                 if (quizId != DBNull.Value) {
-                    if (descriptionId != DBNull.Value) {
-                        throw new Exception("Descriptionid and QuizId can't both be not null");
-                    }
-                    else {
-                        section.AddQuiz(quizzes[(int)quizId]);
-                    }
+                    section.AddQuiz(quizzes[(int)quizId]);
                 }
-                else if (descriptionId != DBNull.Value) {
-                    if (quizId != DBNull.Value) {
-                        throw new Exception("Descriptionid and QuizId can't both be not null");
-                    }
-                    else {
-                        section.AddDescription(descriptions[(int)descriptionId]);
-                    }
-                }
-                else {
-                    throw new Exception("Either DescriptionId or QuizId must be set");
+                if (descriptionId != DBNull.Value) {
+                    section.AddDescription(descriptions[(int)descriptionId]);
                 }
 
                 sections.Add(id, section);

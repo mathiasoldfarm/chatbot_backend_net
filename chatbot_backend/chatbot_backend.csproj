@@ -13,6 +13,7 @@
     <Folder Include="Controllers\Bot\" />
     <Folder Include="Controllers\Users\" />
     <Folder Include="Controllers\Views\Account\" />
+    <Folder Include="Controllers\CourseCreation\" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />

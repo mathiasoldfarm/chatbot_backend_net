@@ -12,7 +12,7 @@ namespace chatbot_backend.Controllers {
     [Route("users/create")]
     public class CreateUser : ControllerBase {
         public class Data {
-             public string email { get; set; }
+            public string email { get; set; }
             public string password { get; set; }
             public string password2 {
                 get; set;
