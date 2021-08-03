@@ -47,6 +47,7 @@ namespace chatbot_backend.Controllers.Views {
                 name = _name;
                 order = _order;
                 done = _done;
+                parent = -1;
                 children = new List<SectionData>();
             }
 
@@ -100,7 +101,7 @@ namespace chatbot_backend.Controllers.Views {
                 }
 
                 foreach(SectionData section in sectionsDict.Values) {
-                    if (section.parent != 0) {
+                    if (section.parent != -1) {
                         sectionsDict[section.parent].children.Add(section);
                     }
                 }
@@ -109,7 +110,7 @@ namespace chatbot_backend.Controllers.Views {
                     section.SortChildren();
                 }
 
-                List<SectionData> sections = sectionsDict.Values.Where(s => s.parent == 0).ToList();
+                List<SectionData> sections = sectionsDict.Values.Where(s => s.parent == -1).ToList();
                 sections = sections.OrderBy(s => s.order).ToList();
 
                 return Ok(sections);
