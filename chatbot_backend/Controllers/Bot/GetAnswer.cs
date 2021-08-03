@@ -441,8 +441,8 @@ namespace chatbot_backend.Controllers.Bot {
             string endTag = $"</{tag}>";
             if (text.Contains(openTag) && text.Contains(endTag)) {
                 if (tag == "IMG") {
-                    string images_url_base = "http://localhost:5001/images";
-                    text = text.Replace(openTag, $@"<img class=""description-{tag.ToLower()}"" src=""{images_url_base}/");
+                    string images_url_base = "http://localhost:5001/images/";
+                    text = text.Replace(openTag, $@"<img class=""description-{tag.ToLower()}"" src=""{images_url_base}");
                     text += @".png"" />";
                     text = text.Replace(endTag, "");
                 } else {
@@ -459,6 +459,7 @@ namespace chatbot_backend.Controllers.Bot {
             string text = _description.levels[0].description;
             ParseTag("DEFINITION", ref text);
             ParseTag("TIP", ref text);
+            ParseTag("EKSEMPEL", ref text);
             ParseTag("IMG", ref text);
 
             _description.levels[0].description = text;

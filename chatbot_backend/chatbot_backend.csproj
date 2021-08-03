@@ -14,6 +14,8 @@
     <Folder Include="Controllers\Users\" />
     <Folder Include="Controllers\Views\Account\" />
     <Folder Include="Controllers\CourseCreation\" />
+    <Folder Include="wwwroot\" />
+    <Folder Include="wwwroot\images\" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
