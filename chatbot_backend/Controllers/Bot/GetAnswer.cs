@@ -139,7 +139,6 @@ namespace chatbot_backend.Controllers.Bot {
 
                 HistoryId = await GetHistoryId(botResponse.GetNewHistory, data.initialHistoryId);
                 Section section = await GetDataForResponseByRequestType(botResponse.Type);
-                section.description = ParseDescription(section.description);
                 int SectionDone = await SetUserSectionDone(data.contextId, HistoryId, userEmail, botResponse.SetDone);
                 Session session = new Session(CourseId, section, Question, botResponse.Answer, botResponse.NextContextId, HistoryId);
                 session.insert();
@@ -434,36 +433,6 @@ namespace chatbot_backend.Controllers.Bot {
             
 
             return previousSection;
-        }
-
-        private void ParseTag(string tag, ref string text) {
-            string openTag = $"<{tag}>";
-            string endTag = $"</{tag}>";
-            if (text.Contains(openTag) && text.Contains(endTag)) {
-                if (tag == "IMG") {
-                    string images_url_base = "http://localhost:5001/images/";
-                    text = text.Replace(openTag, $@"<img class=""description-{tag.ToLower()}"" src=""{images_url_base}");
-                    text += @".png"" />";
-                    text = text.Replace(endTag, "");
-                } else {
-                    text = text.Replace(openTag, $@"<div class=""description-{tag.ToLower()}"">");
-                    text = text.Replace(endTag, "</div>");
-                }
-            }
-        }
-
-        private Description ParseDescription(Description _description) {
-            if (_description == null || _description.levels.Count == 0) {
-                return _description;
-            }
-            string text = _description.levels[0].description;
-            ParseTag("DEFINITION", ref text);
-            ParseTag("TIP", ref text);
-            ParseTag("EKSEMPEL", ref text);
-            ParseTag("IMG", ref text);
-
-            _description.levels[0].description = text;
-            return _description;
         }
     }
 }

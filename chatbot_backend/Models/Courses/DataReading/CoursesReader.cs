@@ -2,6 +2,7 @@
 using System.Data;
 using System.Collections.Generic;
 using Npgsql;
+using System.Linq;
 
 namespace chatbot_backend.Models {
     public class CoursesReader {
@@ -205,6 +206,89 @@ namespace chatbot_backend.Models {
             }
         }
 
+        private void ParseTag(string tag, ref string text) {
+            string openTag = $"<{tag}>";
+            string endTag = $"</{tag}>";
+            if (text.Contains(openTag) && text.Contains(endTag)) {
+                if (tag == "IMG") {
+                    string images_url_base = "http://localhost:5001/images/";
+                    text = text.Replace(openTag, $@"<img class=""description-{tag.ToLower()}"" src=""{images_url_base}");
+                    text = text.Replace(endTag, @".png"" />");
+                } else if (tag == "MATH") {
+                    text = text.Replace(openTag, @"\(");
+                    text = text.Replace(endTag, @"\)");
+                } else if (tag == "MATHBIG") {
+                    text = text.Replace(openTag, @"$$");
+                    text = text.Replace(endTag, @"$$");
+                } else {
+                    text = text.Replace(openTag, $@"<div class=""description-{tag.ToLower()}"">");
+                    text = text.Replace(endTag, "</div>");
+                }
+            }
+        }
+
+        private void ParseLines(ref string text, string[] tags) {
+            string newText = "";
+            string[] splitoptions = new string[tags.Length * 2 + 1];
+            int counter = 0;
+            foreach(string tag in tags) {
+                string openTag = $"<{tag}>";
+                string endTag = $"</{tag}>";
+
+                splitoptions[counter] = openTag;
+                counter += 1;
+                splitoptions[counter] = endTag;
+                counter += 1;
+            }
+            splitoptions[splitoptions.Length - 1] = "\n";
+
+            string[] splittedByNewLines = text.Split(splitoptions, StringSplitOptions.RemoveEmptyEntries);
+            if ( splittedByNewLines[splittedByNewLines.Length - 1] == "" ) {
+                splittedByNewLines = splittedByNewLines.SkipLast(1).ToArray();
+            }
+            foreach (string substring in splittedByNewLines) {
+                text = text.Replace(substring, "<p>" + substring + "</p>");
+            }
+        }
+
+        private void Parse(ref string text) {
+            string[] tags = new string[] { "DEFINITION", "TIP", "EKSEMPEL", "IMG", "MATH", "MATHBIG" };
+            string[] leaveOut = new string[] { "MATH", "IMG", "MATHBIG" };
+            ParseLines(ref text, tags.Where(x => !leaveOut.Contains(x) ).ToArray());
+            foreach (string tag in tags) {
+                ParseTag(tag, ref text);
+            }
+        }
+
+        private void ParseSections() {
+            foreach(Section section in sections.Values) {
+                section.description = ParseDescription(section.description);
+                section.quiz = ParseQuiz(section.quiz);
+            }
+        }
+
+        private Description ParseDescription(Description _description) {
+            if (_description == null || _description.levels.Count == 0) {
+                return _description;
+            }
+            string text = _description.levels[0].description;
+            Parse(ref text);
+
+            _description.levels[0].description = text;
+            return _description;
+        }
+
+        private Quiz ParseQuiz(Quiz _quiz) {
+            if (_quiz == null || _quiz.levels.Count == 0 || _quiz.levels[0].questions.Count == 0) {
+                return _quiz;
+            }
+            string text = _quiz.levels[0].questions[0].question;
+            Parse(ref text);
+
+            _quiz.levels[0].questions[0].question = text;
+            return _quiz;
+        }
+
         private void ReadCourses() {
             string possibleAnswersTable = "possibleAnswers";
             string questionsTable = "questions";
@@ -256,6 +340,7 @@ namespace chatbot_backend.Models {
             AddQuizQuizLevelRelations(DBData.Tables[quizLevelsTable]);
             AddDescriptionDescriptionLevelRelations(DBData.Tables[descriptionLevelsTable]);
             AddCourseSectionRelations(DBData.Tables[courseSectionRelations]);
+            ParseSections();
         }
 
         public CoursesReader run() {
