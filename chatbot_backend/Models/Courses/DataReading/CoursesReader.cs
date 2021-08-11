@@ -267,6 +267,14 @@ namespace chatbot_backend.Models {
             }
         }
 
+        private void ParseAnswers() {
+            foreach (Answer answer in answers.Values) {
+                string text = answer.answer;
+                ParseTag("MATH", ref text);
+                answer.answer = text;
+            }
+        }
+
         private Description ParseDescription(Description _description) {
             if (_description == null || _description.levels.Count == 0) {
                 return _description;
@@ -341,6 +349,7 @@ namespace chatbot_backend.Models {
             AddDescriptionDescriptionLevelRelations(DBData.Tables[descriptionLevelsTable]);
             AddCourseSectionRelations(DBData.Tables[courseSectionRelations]);
             ParseSections();
+            ParseAnswers();
         }
 
         public CoursesReader run() {

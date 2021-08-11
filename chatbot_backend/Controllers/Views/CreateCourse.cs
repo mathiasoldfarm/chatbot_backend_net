@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using System.Linq;
+using chatbot_backend.Controllers.Utils;
 
 namespace chatbot_backend.Controllers.Views {
     [ApiController]
@@ -191,22 +192,22 @@ namespace chatbot_backend.Controllers.Views {
                             found = true;
 
                             CreateCourseDBData createCourseDBData = new CreateCourseDBData();
-                            createCourseDBData.title = TryUnpackDBStringValue(0, reader);
-                            createCourseDBData.section_id = TryUnpackDBIntValue(1, reader);
-                            createCourseDBData.sectionOrder = TryUnpackDBIntValue(2, reader);
-                            createCourseDBData.quizId = TryUnpackDBIntValue(3, reader);
-                            createCourseDBData.descriptionId = TryUnpackDBIntValue(4, reader);
-                            createCourseDBData.question = TryUnpackDBStringValue(5, reader);
-                            createCourseDBData.question_id = TryUnpackDBIntValue(6, reader);
-                            createCourseDBData.correct = TryUnpackDBIntValue(7, reader);
-                            createCourseDBData.question_order = TryUnpackDBIntValue(8, reader);
-                            createCourseDBData.answer = TryUnpackDBStringValue(9, reader);
-                            createCourseDBData.answer_id = TryUnpackDBIntValue(10, reader);
-                            createCourseDBData.answer_order = TryUnpackDBIntValue(11, reader);
-                            createCourseDBData.description = TryUnpackDBStringValue(12, reader);
-                            createCourseDBData.description_level_id = TryUnpackDBIntValue(13, reader);
-                            createCourseDBData.using_quiz = TryUnpackDBBoolValue(14, reader);
-                            createCourseDBData.using_description = TryUnpackDBBoolValue(15, reader);
+                            createCourseDBData.title = Unpacker.UnpackDBStringValue(0, reader);
+                            createCourseDBData.section_id = Unpacker.UnpackDBIntValue(1, reader);
+                            createCourseDBData.sectionOrder = Unpacker.UnpackDBIntValue(2, reader);
+                            createCourseDBData.quizId = Unpacker.UnpackDBIntValue(3, reader);
+                            createCourseDBData.descriptionId = Unpacker.UnpackDBIntValue(4, reader);
+                            createCourseDBData.question = Unpacker.UnpackDBStringValue(5, reader);
+                            createCourseDBData.question_id = Unpacker.UnpackDBIntValue(6, reader);
+                            createCourseDBData.correct = Unpacker.UnpackDBIntValue(7, reader);
+                            createCourseDBData.question_order = Unpacker.UnpackDBIntValue(8, reader);
+                            createCourseDBData.answer = Unpacker.UnpackDBStringValue(9, reader);
+                            createCourseDBData.answer_id = Unpacker.UnpackDBIntValue(10, reader);
+                            createCourseDBData.answer_order = Unpacker.UnpackDBIntValue(11, reader);
+                            createCourseDBData.description = Unpacker.UnpackDBStringValue(12, reader);
+                            createCourseDBData.description_level_id = Unpacker.UnpackDBIntValue(13, reader);
+                            createCourseDBData.using_quiz = Unpacker.UnpackDBBoolValue(14, reader);
+                            createCourseDBData.using_description = Unpacker.UnpackDBBoolValue(15, reader);
 
                             currentDraftCourseData.Add(createCourseDBData);
                         }
@@ -300,27 +301,6 @@ namespace chatbot_backend.Controllers.Views {
             } catch(Exception e) {
                 return BadRequest(e.ToString());
             }
-        }
-
-        private string TryUnpackDBStringValue(int index, NpgsqlDataReader reader) {
-            if (reader[index] == DBNull.Value) {
-                return "";
-            }
-            return (string)reader[index];
-        }
-
-        private int TryUnpackDBIntValue(int index, NpgsqlDataReader reader) {
-            if (reader[index] == DBNull.Value) {
-                return -1;
-            }
-            return (int)reader[index];
-        }
-
-        private bool TryUnpackDBBoolValue(int index, NpgsqlDataReader reader) {
-            if (reader[index] == DBNull.Value) {
-                return false;
-            }
-            return (bool)reader[index];
         }
     }
 }

@@ -25,6 +25,9 @@ namespace chatbot_backend.Models {
         public bool usingDescription {
             get; set;
         }
+        public bool TakeInput {
+            get; set;
+        }
 
         public Section(DataRow row) {
             try {
@@ -40,6 +43,10 @@ namespace chatbot_backend.Models {
             catch {
                 throw new Exception("Constructor argument DataRow was expected to have two arguments of type int string");
             }
+        }
+
+        public Section(bool takeinput) {
+            TakeInput = takeinput;
         }
 
 

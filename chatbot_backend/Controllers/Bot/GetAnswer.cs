@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using System.Net.Http;
 using System.Security.Claims;
 using System.Text.RegularExpressions;
+using chatbot_backend.Controllers.Utils;
 
 namespace chatbot_backend.Controllers.Bot {
     [ApiController]
@@ -19,6 +20,12 @@ namespace chatbot_backend.Controllers.Bot {
             public int initialHistoryId { get; set; }
             public int type { get; set; }
             public string question { get; set; }
+            public string requestData {
+                get; set;
+            }
+            public int sectionId {
+                get; set;
+            }
         }
 
         private enum RequestType {
@@ -32,7 +39,8 @@ namespace chatbot_backend.Controllers.Bot {
             FetchNextSection,
             FetchPreviousSection,
             FetchSectionById,
-            SearchForContent
+            SearchForContent,
+            TakeInput
         }
         private enum FetchingDirection {
             Forward,
@@ -116,6 +124,40 @@ namespace chatbot_backend.Controllers.Bot {
             }
         }
 
+        private class HistoryInstance {
+            public int sessionId {
+                get; set;
+            }
+            public int sectionId {
+                get; set;
+            }
+            public int quizId {
+                get; set;
+            }
+            public int descriptionId {
+                get; set;
+            }
+
+            public HistoryInstance(int sessionId, int sectionId, int quizId, int descriptionId) {
+                this.sessionId = sessionId;
+                this.sectionId = sectionId;
+                this.quizId = quizId;
+                this.descriptionId = descriptionId;
+            }
+        }
+
+        private class History {
+            public List<HistoryInstance> history;
+
+            public History() {
+                history = new List<HistoryInstance>();
+            }
+
+            public void Add(int sessionId, int sectionId, int quizId, int descriptionId) {
+                history.Add(new HistoryInstance(sessionId, sectionId, quizId, descriptionId));
+            }
+        }
+
         int CourseId { get; set; } = -1;
         int HistoryId { get; set; } = -1;
         string Question { get; set; }
@@ -137,16 +179,27 @@ namespace chatbot_backend.Controllers.Bot {
                 string botQuery = await GenerateBotQuery(data.contextId, data.initialHistoryId);
                 botResponse = await ChatbotRequest(botQuery);
 
-                HistoryId = await GetHistoryId(botResponse.GetNewHistory, data.initialHistoryId);
-                Section section = await GetDataForResponseByRequestType(botResponse.Type);
-                int SectionDone = await SetUserSectionDone(data.contextId, HistoryId, userEmail, botResponse.SetDone);
-                Session session = new Session(CourseId, section, Question, botResponse.Answer, botResponse.NextContextId, HistoryId);
-                session.insert();
-
-                return Ok(new ClientData(section, data.courseId, botResponse, HistoryId, SectionDone));
+                ClientData response = await HandleChatbotResponse(userEmail, data);
+                return Ok(response);
             } catch (Exception e) {
                 return BadRequest(e.Message);
             }
+        }
+
+        private async Task<ClientData> HandleChatbotResponse(string userEmail, Data data) {
+            HistoryId = await GetHistoryId(botResponse.GetNewHistory, data.initialHistoryId);
+            Section section = await GetDataForResponseByRequestType(botResponse.Type);
+
+            int SectionDone = -1;
+            if ( botResponse.Type != DataFetchingRequest.TakeInput ) {
+                SectionDone = await SetUserSectionDone(data.contextId, HistoryId, userEmail, botResponse.SetDone);
+                Session session = new Session(CourseId, section, Question, botResponse.Answer, botResponse.NextContextId, HistoryId);
+                session.insert();
+            }
+
+            InsertFeedback(data);
+
+            return new ClientData(section, data.courseId, botResponse, HistoryId, SectionDone);
         }
 
         // Generating query for chatbot service
@@ -160,6 +213,7 @@ namespace chatbot_backend.Controllers.Bot {
             url += $"&context={context}";
             url += $"&contextId={contextId}";
             url += $"&history={history}";
+            url += $"&section={history}";
 
             return url;
         }
@@ -168,11 +222,13 @@ namespace chatbot_backend.Controllers.Bot {
         private async Task<string> GetHistory(int historyId)
         {
             string fetchQuery = @"
-            SELECT id
+            SELECT sessions.id, section_id, sections.quiz_id, sections.description_id
             FROM sessions
-            WHERE history_id = @historyId;";
+            INNER JOIN sections ON sections.id = sessions.section_id
+            WHERE history_id = @historyId
+            ORDER BY sessions.id;";
 
-            List<int> history = new List<int>();
+            History history = new History();
             await using (var cmd = new NpgsqlCommand(fetchQuery, DB.connection))
             {
                 cmd.Parameters.AddWithValue("historyId", historyId);
@@ -180,14 +236,18 @@ namespace chatbot_backend.Controllers.Bot {
                 {
                     while (await reader.ReadAsync())
                     {
-                        int sessionId = (int)reader[0];
-                        history.Add(sessionId);
+                        history.Add(
+                            Unpacker.UnpackDBIntValue(0, reader),
+                            Unpacker.UnpackDBIntValue(1, reader),
+                            Unpacker.UnpackDBIntValue(2, reader),
+                            Unpacker.UnpackDBIntValue(3, reader)
+                        );
                     }
                 }
             }
 
             try {
-                return JsonConvert.SerializeObject(history);
+                return JsonConvert.SerializeObject(history.history);
             } catch (Exception e) {
                 throw new Exception($"Could not serialize history data: {e}");
             }
@@ -316,6 +376,8 @@ namespace chatbot_backend.Controllers.Bot {
                 case DataFetchingRequest.FetchSectionById:
                     nextSectionId = GetSectionIdFromQuestion();
                     break;
+                case DataFetchingRequest.TakeInput:
+                    return new Section(true);
                 case DataFetchingRequest.SearchForContent:
                     int sectionIdFound = Courses.SearchForSectionId(Question);
                     if (sectionIdFound == -1) {
@@ -433,6 +495,21 @@ namespace chatbot_backend.Controllers.Bot {
             
 
             return previousSection;
+        }
+
+        private void InsertFeedback(Data data) {
+            if (data.question.ToLower() == "send feedback" && data.requestData.Length > 0) { // TODO make solution not harcoded
+                try {
+                    string insertQuery = @"INSERT INTO feedback(feedback, section) VALUES(@feedback ,@sectionId)";
+
+                    NpgsqlCommand insertCmd = new NpgsqlCommand(insertQuery, DB.connection);
+                    insertCmd.Parameters.AddWithValue("feedback", data.requestData);
+                    insertCmd.Parameters.AddWithValue("sectionId", data.sectionId);
+                    insertCmd.ExecuteNonQuery();
+                } catch(PostgresException e) {
+                    throw new Exception($"Failed inserting feedback: {e.Detail}");
+                }
+            }
         }
     }
 }
