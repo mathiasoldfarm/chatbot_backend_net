@@ -1,10 +1,11 @@
 ﻿using System;
+using System.Threading.Tasks;
 using Npgsql;
 
 namespace chatbot_backend.Models {
     public static class DB {
         public static NpgsqlConnection connection;
-
+      
         public static void connect() {
             string databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
             Uri databaseUri = new Uri(databaseUrl);
@@ -18,7 +19,8 @@ namespace chatbot_backend.Models {
                 Database = databaseUri.LocalPath.TrimStart('/'),
                 Pooling = true,
                 SslMode = SslMode.Require,
-                TrustServerCertificate = true
+                TrustServerCertificate = true,
+                MaxPoolSize = 1000
             };
 
             connection = new NpgsqlConnection(builder.ToString());

@@ -9,7 +9,7 @@ using System.Security.Claims;
 
 namespace chatbot_backend.Controllers.Views {
     [ApiController]
-    [Route("views/subjects")]
+    [Route("views/bøger")]
     public class Subjects : ControllerBase {
         private class CourseStatusData {
             public string title {

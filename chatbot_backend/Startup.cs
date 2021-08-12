@@ -65,6 +65,7 @@ namespace chatbot_backend {
             DB.connect();
             Courses.FetchCoursesData();
 
+
             app.UseHttpsRedirection();
 
             app.UseRouting();
